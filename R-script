@@ -1,0 +1,144 @@
+### Research paper - corruption and environmental performance ###
+
+#Packages
+
+install.packages("visreg")
+install.packages("modelsummary")
+
+library(tidyverse)
+library(haven)
+library(psych) 
+library(ggplot2)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(visreg)
+library(modelsummary)
+
+
+#Data
+data1 = read.csv("C:\\Users\\noora\\Documents\\uni_R\\Simm66_data_1 - Sheet3.csv")
+
+#Exploring data
+summary(data1)
+str(data1)
+
+#Cleaning missing values
+median(data1$gdp, na.rm = TRUE)
+median1 <- median(data1$gdp, na.rm = TRUE)
+data1[is.na(data1$gdp), "gdp"] <- median1
+
+median(data1$govt_type, na.rm = TRUE)
+median2 <- median(data1$govt_type, na.rm = TRUE)
+data1[is.na(data1$govt_type), "govt_type"] <- median2
+
+median(data1$gini_idx, na.rm = TRUE)
+median3 <- median(data1$gini_idx, na.rm = TRUE)
+data1[is.na(data1$gini_idx), "gini_idx"] <- median3
+
+median(data1$EPI, na.rm = TRUE)
+median4 <- median(data1$EPI, na.rm = TRUE)
+data1[is.na(data1$EPI), "EPI"] <- median4
+
+#Factors
+data1 = data1 %>% 
+  mutate(country = factor(country),
+         corr_idx = as.numeric(corr_idx),
+         gdp = as.numeric(gdp),
+         freedom_idx = as.numeric(freedom_idx),
+         govt_type = factor(govt_type))
+
+# Plot focal X
+ggplot(data1, aes(corr_idx)) + 
+  geom_histogram() +
+  theme_classic() + 
+  ggtitle("Focal Independent Variable")
+
+# Summary stats for focal X 
+summary(data1$corr_idx)
+
+# Plot focal Y
+ggplot(data1, aes(EPI)) + 
+  geom_histogram() +
+  theme_classic() + 
+  ggtitle("Focal Dependent Variable")
+
+# Summary stats for focal Y 
+summary(data1$EPI)
+
+# Bi variate model 
+mod1 <- lm(EPI ~ corr_idx, 
+           data = data1)
+
+# Model summary
+summary(mod1)
+
+tab_model(mod1, show.se = TRUE, show.ci = FALSE, dv.labels = "Environmental Performance Index")
+
+#Testing for alternative theories (repeated for all variables)
+mod_test <- lm(EPI ~ corr_idx + 
+             freedom_idx,
+           data = data1)
+
+summary(mod_test)
+
+# Model with additional variables
+mod2 <- lm(EPI ~ corr_idx + 
+             gdp +
+             gini_idx + 
+             govt_type, 
+             data = data1)
+             
+summary(mod2)
+
+tab_model(mod2, show.se = TRUE, show.intercept = TRUE, dv.labels = "Environmental Performance Index")
+
+#Diagnostic plots
+
+plot(mod2)
+
+CooksD <- cooks.distance(mod2)
+sort(CooksD, decreasing = TRUE) %>% head()
+
+#Removing the outlier
+data_no_outliers <- data1[-c(127), ]
+
+#Final model
+mod3 <- lm(EPI ~ corr_idx + 
+             gdp +
+             gini_idx +
+             govt_type, 
+             data = data_no_outliers)
+
+summary(mod3)
+
+tab_model(mod3, show.se = TRUE, show.intercept = TRUE, dv.labels = "Environmental Performance Index")
+
+#Diagnostic model
+plot(mod3)
+
+#Assumptions
+
+#Linearity
+plot(mod3, which = 1)
+
+# Homogeneity of variance
+plot(mod3, which = 3)
+
+# Normality of the residuals
+plot(mod3, which = 2)
+
+#Absence of multicollinearity
+library(car)
+vif(mod3)
+
+#Presenting 
+visreg(mod3, "corr_idx", 
+       ylab = "Environmental Performance", 
+       xlab = "Corruption Index", 
+       gg = TRUE, 
+       band = TRUE) + 
+  theme_classic() + 
+  ggtitle("Final model")
+
+
